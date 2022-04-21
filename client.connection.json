@@ -1,0 +1,26 @@
+'{
+    "_events": {},
+    "_eventsCount": 10,
+    "_maxListeners": null,
+    "ws": null,
+    "reconnectTimeoutID": null,
+    "heartbeatIntervalID": null,
+    "retryConnectionBackoff": {
+        "factor": 2,
+        "numAttempts": 0,
+        "ms": 100,
+        "max": 60000
+    },
+    "requestManager": {
+        "nextId": 0,
+        "promisesAwaitingResponse": {}
+    },
+    "connectionManager": {
+        "promisesAwaitingConnection": []
+    },
+    "url": "wss://s.altnet.rippletest.net:51233",
+    "config": {
+        "timeout": 20000,
+        "connectionTimeout": 5000
+    }
+}'

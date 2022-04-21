@@ -3,7 +3,7 @@ module.exports = {
         name: 'test-xrp-server',
         script: 'index.js',
         instances: 'max',
-        exec_mode: 'cluster',
+       exec_mode: 'cluster',
         autorestart: true,
         watch: false,
         max_memory_restart: '31G',

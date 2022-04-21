@@ -1,43 +1,30 @@
 const { RippleAPI } = require('ripple-lib');
+const xrpl = require("xrpl");
 const pm2 = require('pm2');
+const Cryptr = require('cryptr');
+
 const config = {
     // server: 'ws://xrp-testnet-lb-810822449.eu-west-2.elb.amazonaws.com:6005', // w3villa testnet
     server: 'wss://s.altnet.rippletest.net:51233',
     trace: false,
     timeout: 10000
 };
-var api = new RippleAPI(config);
-// api.disconnect();
 
+// const api = new RippleAPI(config);
+const client = new xrpl.Client("wss://s.altnet.rippletest.net:51233");
+client.connect();
+const api = client;
 
 // 📜 🔴 ✅ 🔌 🛠️ ✔ 
 
-api.on('disconnected', async (code) => {
+api.on('disconnected', (code) => {
     console.log('🔴 disconnect event triggered, code:', code);
-    //await api.disconnect();
 });
 
-api.on('error', async (errorCode, errorMessage) => {
+api.on('error', (errorCode, errorMessage) => {
     console.log('🔴 Error event triggered ', errorCode + ': ' + errorMessage);
-    await api.disconnect();
 });
 
-pm2.connect((err) => {
-    pm2.list(async (error, list) => {
-        for (let i = 0; i < list.length; i++) {
-            if (list[i].name == 'test-xrp-server') {
-                FIRST_INSTANCE_ID = list[i].pm2_env.pm_id;
-                break;
-            }
-        }
-        if (process.env.pm_id == FIRST_INSTANCE_ID) {
-            api.connection.on('transaction', (transactionData) => {
-                console.log('Transaction📜', transactionData);
-            });
-
-        }
-    });
-});
 
 api.on('connected', async () => {
     rippleServerConnected = true;
@@ -56,12 +43,29 @@ api.on('connected', async () => {
             }
             console.log('RIPPLE_FIRST_INSTANCE_ID: ', FIRST_INSTANCE_ID, 'process.env.pm_id:', process.env.pm_id);
             if (process.env.pm_id == FIRST_INSTANCE_ID) {
-                console.log("✅ This is the first instance of the XRP server.");
+                api.connection.on('transaction', (transactionData) => {
+                    console.log('\n✔********************* 📜Transaction received start********************\n', transactionData, '\n--------------------------------------------------------\n');
+                    //saveTransactionAsCredit(transactionData);
+                    // api.disconnect().then(() => {
+                    //     console.log('Ripple server disconnected to: ');
+                    //     if (!api.isConnected()) {
+                    //         api.connect().then(() => {
+                    //             // console.log('Ripple server connected to: ', config);
+                    //         }).catch((error) => {
+                    //             console.log('🔴 ERROR: Ripple server connection error!!\n\n', error);
+                    //             api.disconnect();
+                    //         });
+                    //     }
+                    // }).catch((error) => {
+                    //     console.log('🔴 ERROR: Ripple server disconnect error!!\n\n', error);
+                    //     api.disconnect();
+                    // });
 
+                });
                 const hotwalletAddresses = ['rJdafLdhkGAgASnPqBKPJKUPNii9ZY3hvd']
                 console.log('🔌 Listening to hot wallet address:', hotwalletAddresses, FIRST_INSTANCE_ID);
-
-
+                // console.log(`📜 ${mailContent.rippleServerConnected.c} on instance ID: ${process.env.pm_id}`);
+                // Set require destination tag for hot wallet
                 setRequireDestinationTag(hotwalletAddresses);
                 return api.connection.request({
                     command: 'subscribe',
@@ -73,52 +77,44 @@ api.on('connected', async () => {
 });
 
 
-
-// pm2.connect((err) => {
-//     if (err) {
-//         console.log(err);
-//         process.exit(2);
-//     }
-//     pm2.list(async (error, list) => {
-//         for (let i = 0; i < list.length; i++) {
-//             if (list[i].name == 'test-xrp-server') {
-//                 FIRST_INSTANCE_ID = list[i].pm2_env.pm_id;
-//                 break;
-//             }
-//         }
-//         if (process.env.pm_id == FIRST_INSTANCE_ID) {
-//             console.log("dusra wala : ", FIRST_INSTANCE_ID);
-//         }
-//     });
-// });
-
-
 async function setRequireDestinationTag(hotwalletAddresses) {
+    console.log('🔌 Setting require destination tag on hot wallet addresses:', hotwalletAddresses);
     try {
         let setting;
-        hotwalletAddresses.forEach(async (address) => {
+        await hotwalletAddresses.forEach(async (address) => {
+            console.log('🔴 loop ke ander: ', address);
             setting = await api.getSettings(address).catch((error) => {
-                console.log('XRP api getSettings Error: ', error);
+                console.log('🔴XRP api getSettings Error: ', error);
                 throw new Error(error);
             });
-            if (setting && !setting.requireDestinationTag) {
+            console.log('🔴XRP api getSettings Errorswqdqwddqwdqw: ', setting);
+
+            if (setting && setting.requireDestinationTag) {
+                console.log("🔴🔴a: ", address)
+                console.log("🔴🔴s: ", setting)
                 setRequireDestinationTagOnLedger(address);
             }
         });
     } catch (error) {
-        console.log('setRequireDestinationTag Error: ', error);
+        console.log('🔴setRequireDestinationTag Error: ', error);
     }
 }
+
+function getHotWalletSecret(address) {
+    const cryptr = new Cryptr('mojow@190195');
+    const decryptedKey = cryptr.decrypt('04e0a41cdfafeab4014a492844bb0fbba99c69a4c1eda6c41583ffcb40b48d38bf4a3e701e25beb99b6af4186b8197b32b475eb46c7a09879a72f4ceb4121e347cd5e536470d3076738e59db84cce03362f8f88647c592faac1f79aaf8dbfb44eeda9fdaa5bd4b2daf4234b0c9934762e420a19c1d8ea2b1bf12280327');
+    return decryptedKey;
+};
 
 async function setRequireDestinationTagOnLedger(address) {
     try {
         const tx = await api.prepareSettings(address, {
             requireDestinationTag: true,
         });
-
+        console.log("🔴🔴tx: ", tx)
         const signedBlob = await signTransactionAndGetBlob(tx, getHotWalletSecret(address));
 
-        console.log('signedBlob: ', signedBlob);
+        console.log('🔴🔴signedBlob: ', signedBlob);
         const transaction = await sendSignedBlob(signedBlob);
         console.log('transaction: ', transaction);
     } catch (error) {
@@ -165,18 +161,48 @@ function sendSignedBlob(signedBlob) {
 }
 
 
-
+// if (!api.isConnected()) {
+//     api.connect().then(() => {
+//         // console.log('Ripple server connected to: ', config);
+//     }).catch((error) => {
+//         console.log('🔴 ERROR: Ripple server connection error!!\n\n', error);
+//         api.disconnect();
+//     });
+// }
 
 api.connect().then(() => {
     console.log('Ripple server connected to: ', config);
-}).catch(async (error) => {
+}).catch((error) => {
     console.log('🔴 ERROR: Ripple server connection error!!\n\n', error);
-    await api.disconnect();
+    api.disconnect();
 });
 
-setTimeout(
-    async () => {
-        await api.disconnect()
-        await api.connect();
-    }, 1000*30);
+setInterval(() => {
+    if (api.isConnected()) {
+        api.disconnect().then(() => {
+            console.log('🔌🔴Disconnected by set interval: ', config);
+        }).catch((error) => {
+            console.log('🔌🔴🔴 error while disconnecting form set interval!!\n\n', error);
+            api.disconnect();
+        });
+    }
+}, 1000*90);
 
+setInterval(() => {
+    if (!api.isConnected()) {
+        api.connect().then(() => {
+            console.log('🔌✅ connected by set interval: ', config);
+        }).catch((error) => {
+            console.log('🔌🔴🔴 error while connecting form set interval!!\n\n', error);
+            api.disconnect();
+        });
+    }
+}, 1000*30);
+// api.disconnect().then(() => {
+//     console.log('Ripple server disconnected to: ');
+// }).catch((error) => {
+//     console.log('🔴 ERROR: Ripple server disconnect error!!\n\n', error);
+//     api.disconnect();
+// });
+
+// disconnected

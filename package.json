@@ -9,7 +9,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "cryptr": "^6.0.3",
     "pm2": "^5.2.0",
-    "ripple-lib": "^1.10.0"
+    "ripple-lib": "^1.10.0",
+    "xrpl": "^2.2.0"
   }
 }

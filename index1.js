@@ -6,38 +6,27 @@ const config = {
     trace: false,
     timeout: 10000
 };
+
+const transactions = [];
 var api = new RippleAPI(config);
-// api.disconnect();
 
-
-// 📜 🔴 ✅ 🔌 🛠️ ✔ 
-
-api.on('disconnected', async (code) => {
-    console.log('🔴 disconnect event triggered, code:', code);
-    //await api.disconnect();
-});
-
-api.on('error', async (errorCode, errorMessage) => {
-    console.log('🔴 Error event triggered ', errorCode + ': ' + errorMessage);
-    await api.disconnect();
-});
-
-pm2.connect((err) => {
-    pm2.list(async (error, list) => {
-        for (let i = 0; i < list.length; i++) {
-            if (list[i].name == 'test-xrp-server') {
-                FIRST_INSTANCE_ID = list[i].pm2_env.pm_id;
-                break;
-            }
-        }
-        if (process.env.pm_id == FIRST_INSTANCE_ID) {
-            api.connection.on('transaction', (transactionData) => {
-                console.log('Transaction📜', transactionData);
-            });
-
-        }
+if (!api.isConnected()) {
+    api.connect().then(() => {
+        // console.log('Ripple server connected to: ', config);
+    }).catch((error) => {
+        console.log('🔴 ERROR: Ripple server connection error!!\n\n', error);
+        api.disconnect();
     });
+}
+
+api.on('disconnected', (code) => {
+    console.log('🔴 disconnect event triggered, code:', code);
 });
+
+api.on('error', (errorCode, errorMessage) => {
+    console.log('🔴 Error event triggered ', errorCode + ': ' + errorMessage);
+});
+
 
 api.on('connected', async () => {
     rippleServerConnected = true;
@@ -57,11 +46,28 @@ api.on('connected', async () => {
             console.log('RIPPLE_FIRST_INSTANCE_ID: ', FIRST_INSTANCE_ID, 'process.env.pm_id:', process.env.pm_id);
             if (process.env.pm_id == FIRST_INSTANCE_ID) {
                 console.log("✅ This is the first instance of the XRP server.");
+                api.connection.on('transaction', (transactionData) => {
+                    //console.log('\n✔*********************Transaction 📜 processId' + process.env.pm_id + 'received start********************\n', transactionData, '\n--------------------------------------------------------\n');
+                    //saveTransactionAsCredit(transactionData);
+                    transactions.push(transactionData.ledger_hash);
+                    console.log("transactions: ", transactions);
+                    api.disconnect().then(() => {
+                        console.log('Ripple server disconnected to by us: ');
+                        if (!api.isConnected()) {
+                            api.connect().then(() => {
+                                console.log('Ripple server connected to: after disconnect');
+                            }).catch((error) => {
+                                console.log('🔴 ERROR: Ripple server connection error!!\n\n', error);
+                                api.disconnect();
+                            });
+                        }
+                    }).catch((error) => {
+                        console.log('🔴 ERROR: Ripple server disconnect error!!\n\n', error);
+                        api.disconnect();
+                    });
 
-                const hotwalletAddresses = ['rJdafLdhkGAgASnPqBKPJKUPNii9ZY3hvd']
-                console.log('🔌 Listening to hot wallet address:', hotwalletAddresses, FIRST_INSTANCE_ID);
-
-
+                });
+                const hotwalletAddresses = ['rJdafLdhkGAgASnPqBKPJKUPNii9ZY3hvd'];
                 setRequireDestinationTag(hotwalletAddresses);
                 return api.connection.request({
                     command: 'subscribe',
@@ -72,25 +78,6 @@ api.on('connected', async () => {
     });
 });
 
-
-
-// pm2.connect((err) => {
-//     if (err) {
-//         console.log(err);
-//         process.exit(2);
-//     }
-//     pm2.list(async (error, list) => {
-//         for (let i = 0; i < list.length; i++) {
-//             if (list[i].name == 'test-xrp-server') {
-//                 FIRST_INSTANCE_ID = list[i].pm2_env.pm_id;
-//                 break;
-//             }
-//         }
-//         if (process.env.pm_id == FIRST_INSTANCE_ID) {
-//             console.log("dusra wala : ", FIRST_INSTANCE_ID);
-//         }
-//     });
-// });
 
 
 async function setRequireDestinationTag(hotwalletAddresses) {
@@ -167,16 +154,4 @@ function sendSignedBlob(signedBlob) {
 
 
 
-api.connect().then(() => {
-    console.log('Ripple server connected to: ', config);
-}).catch(async (error) => {
-    console.log('🔴 ERROR: Ripple server connection error!!\n\n', error);
-    await api.disconnect();
-});
-
-setTimeout(
-    async () => {
-        await api.disconnect()
-        await api.connect();
-    }, 1000*30);
 
